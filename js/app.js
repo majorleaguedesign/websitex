@@ -54,6 +54,11 @@ class StateManager {
         this.saveState();
     }
 
+    // Helper to save initial state for history
+    saveState() {
+        // No-op for now, just placeholder
+    }
+
     get(id) {
         // Recursive find
         const find = (nodes) => {
@@ -177,18 +182,22 @@ const State = new StateManager();
 
 const Editor = {
     init() {
+        console.log('FlexiBuilder Initializing...');
         this.renderSidebar();
         this.render();
         this.initDragAndDrop();
     },
 
     renderSidebar() {
+        console.log('Rendering Sidebar...');
         // Render widget list in sidebar
         const categories = { layout: [], basic: [], media: [] };
         
         Object.entries(WIDGETS).forEach(([key, w]) => {
             if(key === 'section') return; // Handled by "Add Section" button
-            categories[w.category].push(w);
+            if (categories[w.category]) {
+                categories[w.category].push(w);
+            }
         });
 
         const mkItem = (w) => `
@@ -198,9 +207,13 @@ const Editor = {
             </div>
         `;
 
-        document.getElementById('layout-widgets').innerHTML = categories.layout.map(mkItem).join('');
-        document.getElementById('basic-widgets').innerHTML = categories.basic.map(mkItem).join('');
-        document.getElementById('media-widgets').innerHTML = categories.media.map(mkItem).join('');
+        const layoutContainer = document.getElementById('layout-widgets');
+        const basicContainer = document.getElementById('basic-widgets');
+        const mediaContainer = document.getElementById('media-widgets');
+
+        if (layoutContainer) layoutContainer.innerHTML = categories.layout.map(mkItem).join('');
+        if (basicContainer) basicContainer.innerHTML = categories.basic.map(mkItem).join('');
+        if (mediaContainer) mediaContainer.innerHTML = categories.media.map(mkItem).join('');
 
         this.setupSidebarDrag();
     },
@@ -216,8 +229,17 @@ const Editor = {
     },
 
     initDragAndDrop() {
+        // Check if Sortable is loaded
+        if (typeof Sortable === 'undefined') {
+            console.warn('SortableJS not loaded. Drag and drop will be disabled.');
+            return;
+        }
+
+        const canvas = document.getElementById('builder-canvas');
+        if (!canvas) return;
+
         // Main Container Sorting (Sections)
-        new Sortable(document.getElementById('builder-canvas'), {
+        new Sortable(canvas, {
             animation: 150,
             handle: '.section-handle', // Only drag via handle
             onEnd: (evt) => {
@@ -231,6 +253,8 @@ const Editor = {
 
     // Refresh Sortable on Columns after render
     refreshSortables() {
+        if (typeof Sortable === 'undefined') return;
+
         const columns = document.querySelectorAll('.builder-column');
         columns.forEach(col => {
             new Sortable(col, {
@@ -284,6 +308,8 @@ const Editor = {
 
     render() {
         const canvas = document.getElementById('builder-canvas');
+        if (!canvas) return;
+        
         canvas.innerHTML = '';
 
         State.nodes.forEach(section => {
@@ -406,7 +432,8 @@ const Editor = {
         // Update Breadcrumbs
         const node = State.get(id);
         if (node) {
-            document.getElementById('breadcrumbs').innerText = `Document > ${node.type.toUpperCase()}`;
+            const breadcrumbEl = document.getElementById('breadcrumbs');
+            if (breadcrumbEl) breadcrumbEl.innerText = `Document > ${node.type.toUpperCase()}`;
         }
     },
 
@@ -420,15 +447,16 @@ const Editor = {
         const title = document.getElementById('editor-title');
         const container = document.getElementById('property-controls');
         
-        panel.classList.remove('translate-x-full', 'hidden');
-        title.innerText = `Edit ${WIDGETS[node.type]?.label || 'Element'}`;
+        if (panel) panel.classList.remove('translate-x-full', 'hidden');
+        if (title) title.innerText = `Edit ${WIDGETS[node.type]?.label || 'Element'}`;
         
         // Generate Controls
-        this.renderControls(node, container);
+        if (container) this.renderControls(node, container);
     },
 
     closePropertyPanel() {
-        document.getElementById('panel-editor').classList.add('translate-x-full');
+        const panel = document.getElementById('panel-editor');
+        if (panel) panel.classList.add('translate-x-full');
         State.selectedId = null;
         this.render();
     },
@@ -546,16 +574,32 @@ const Editor = {
         State.addSection();
     },
 
-    switchPanel(panel) {
-        document.getElementById('panel-elements').style.display = panel === 'elements' ? 'block' : 'none';
+    switchPanel(panel, event) {
+        const pEl = document.getElementById('panel-elements');
+        if (pEl) pEl.style.display = panel === 'elements' ? 'block' : 'none';
+        
         document.querySelectorAll('.panel-tab').forEach(el => el.classList.remove('active', 'border-brand-500', 'text-white'));
-        event.currentTarget.classList.add('active', 'border-brand-500', 'text-white');
+        
+        if (event && event.currentTarget) {
+            event.currentTarget.classList.add('active', 'border-brand-500', 'text-white');
+        }
+    },
+    
+    switchPropertyTab(tab, event) {
+        // Simple logic for property tabs (currently just a visual switch as all props are in one list for simplicity)
+        document.querySelectorAll('.prop-tab').forEach(el => el.classList.remove('active', 'border-brand-500', 'text-white'));
+        
+         if (event && event.currentTarget) {
+            event.currentTarget.classList.add('active', 'border-brand-500', 'text-white');
+        }
+        
+        // In a full version, we would filter 'property-controls' children based on data attributes
     },
 
     setDevice(device) {
         State.device = device;
         const wrapper = document.getElementById('viewport-wrapper');
-        wrapper.className = `bg-white shadow-2xl transition-all duration-300 relative flex flex-col min-h-[85vh] mx-auto ${device}`;
+        if (wrapper) wrapper.className = `bg-white shadow-2xl transition-all duration-300 relative flex flex-col min-h-[85vh] mx-auto ${device}`;
         
         // Update Icons
         document.querySelectorAll('.device-btn').forEach(btn => {
@@ -566,14 +610,15 @@ const Editor = {
 
     togglePreview() {
         document.body.classList.toggle('preview-mode');
-        // Hide UI elements in CSS
     },
     
     publish() {
-        // Here we would export HTML
-        const html = document.getElementById('builder-canvas').innerHTML;
-        console.log('Export HTML:', html);
-        alert('Site Updated! (Check console for HTML output)');
+        const canvas = document.getElementById('builder-canvas');
+        if (canvas) {
+            const html = canvas.innerHTML;
+            console.log('Export HTML:', html);
+            alert('Site Updated! (Check console for HTML output)');
+        }
     },
     
     undo() { State.undo(); },

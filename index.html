@@ -60,10 +60,10 @@
             
             <!-- Sidebar Header / Tabs -->
             <div class="flex border-b border-gray-700 bg-gray-900" id="panel-tabs">
-                <button onclick="Editor.switchPanel('elements')" class="panel-tab active flex-1 py-3 text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors border-b-2 border-brand-500 text-white">
+                <button onclick="Editor.switchPanel('elements', event)" class="panel-tab active flex-1 py-3 text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors border-b-2 border-brand-500 text-white">
                     <i class="fas fa-th mb-1 block text-lg"></i> Elements
                 </button>
-                <button onclick="Editor.switchPanel('global')" class="panel-tab flex-1 py-3 text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors border-b-2 border-transparent text-gray-500">
+                <button onclick="Editor.switchPanel('global', event)" class="panel-tab flex-1 py-3 text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors border-b-2 border-transparent text-gray-500">
                     <i class="fas fa-globe mb-1 block text-lg"></i> Global
                 </button>
             </div>
@@ -106,9 +106,9 @@
                 
                 <!-- Property Tabs -->
                 <div class="flex border-b border-gray-700 bg-gray-800/50">
-                    <button onclick="Editor.switchPropertyTab('content')" class="prop-tab active flex-1 py-2 text-[10px] font-bold uppercase tracking-wider hover:bg-gray-700 border-b-2 border-brand-500 text-white" data-tab="content">Content</button>
-                    <button onclick="Editor.switchPropertyTab('style')" class="prop-tab flex-1 py-2 text-[10px] font-bold uppercase tracking-wider hover:bg-gray-700 border-b-2 border-transparent text-gray-500" data-tab="style">Style</button>
-                    <button onclick="Editor.switchPropertyTab('advanced')" class="prop-tab flex-1 py-2 text-[10px] font-bold uppercase tracking-wider hover:bg-gray-700 border-b-2 border-transparent text-gray-500" data-tab="advanced">Advanced</button>
+                    <button onclick="Editor.switchPropertyTab('content', event)" class="prop-tab active flex-1 py-2 text-[10px] font-bold uppercase tracking-wider hover:bg-gray-700 border-b-2 border-brand-500 text-white" data-tab="content">Content</button>
+                    <button onclick="Editor.switchPropertyTab('style', event)" class="prop-tab flex-1 py-2 text-[10px] font-bold uppercase tracking-wider hover:bg-gray-700 border-b-2 border-transparent text-gray-500" data-tab="style">Style</button>
+                    <button onclick="Editor.switchPropertyTab('advanced', event)" class="prop-tab flex-1 py-2 text-[10px] font-bold uppercase tracking-wider hover:bg-gray-700 border-b-2 border-transparent text-gray-500" data-tab="advanced">Advanced</button>
                 </div>
 
                 <div class="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-5" id="property-controls">

@@ -1,6 +1,6 @@
 /**
- * FlexiBuilder Lite - Core Engine
- * A lightweight, Elementor-like page builder.
+ * FlexiBuilder Pro - Core Engine
+ * A professional, Elementor-like page builder with AI capabilities.
  */
 
 // --- Constants & Config ---
@@ -21,6 +21,10 @@ const WIDGETS = {
     button: { 
         type: 'button', label: 'Button', icon: 'fa-mouse', category: 'basic',
         defaultProps: { text: 'Click Here', link: '#', align: 'text-center', variant: 'bg-brand-600', color: 'text-white', size: 'px-8 py-3', radius: 'rounded-md', margin: 'my-4' }
+    },
+    form: {
+        type: 'form', label: 'Form Builder', icon: 'fa-envelope', category: 'basic',
+        defaultProps: { fields: 'Name, Email, Message', buttonText: 'Send Message', action: '#', align: 'text-left', bg: 'bg-gray-50', padding: 'p-6' }
     },
     image: { 
         type: 'image', label: 'Image', icon: 'fa-image', category: 'media',
@@ -113,6 +117,14 @@ class StateManager {
         parent.children.push(newWidget);
         Editor.render();
         Editor.select(newWidget.id);
+    }
+    
+    // For AI generation - clears and replaces all nodes
+    replaceNodes(newNodes) {
+        this.pushHistory();
+        this.nodes = newNodes;
+        this.selectedId = null;
+        Editor.render();
     }
 
     updateProp(id, key, value) {
@@ -401,6 +413,24 @@ const Editor = {
                     <a href="${p.link}" class="inline-block ${p.variant} ${p.color} ${p.size} ${p.radius} font-semibold transition-transform hover:scale-105 shadow-md hover:shadow-lg">${p.text}</a>
                 </div>`;
                 break;
+            case 'form':
+                const fields = p.fields.split(',').map(f => f.trim()).filter(f => f);
+                const fieldsHtml = fields.map(f => `
+                    <div class="mb-3">
+                        <label class="block text-xs font-bold text-gray-700 uppercase mb-1">${f}</label>
+                        <input type="${f.toLowerCase().includes('email') ? 'email' : 'text'}" class="w-full border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none" placeholder="Enter ${f}...">
+                    </div>
+                `).join('');
+                
+                html = `<div class="${p.bg} ${p.padding} rounded-lg shadow-sm border border-gray-100">
+                    <form action="${p.action}" onsubmit="event.preventDefault(); alert('Form submitted (Preview)');">
+                        ${fieldsHtml}
+                        <div class="${p.align} mt-4">
+                            <button type="submit" class="bg-brand-600 text-white px-6 py-2 rounded font-bold hover:bg-brand-700 transition-colors">${p.buttonText}</button>
+                        </div>
+                    </form>
+                </div>`;
+                break;
             case 'image':
                 html = `<div class="${p.shadow} overflow-hidden ${p.radius}">
                     <img src="${p.src}" alt="${p.alt}" class="${p.width} h-auto object-cover block">
@@ -560,6 +590,18 @@ const Editor = {
                 {label: 'Outline', value: 'border-2 border-brand-600 text-brand-600 hover:bg-brand-50'}
             ]));
         }
+
+        // --- FORM ---
+        if (node.type === 'form') {
+            addControl('Fields (comma separated)', createInput('fields'));
+            addControl('Button Text', createInput('buttonText'));
+            addControl('Action URL', createInput('action'));
+             addControl('Background', createInput('bg', 'select', [
+                {label: 'Light', value: 'bg-gray-50'},
+                {label: 'White', value: 'bg-white'},
+                {label: 'Dark', value: 'bg-gray-800 text-white'}
+            ]));
+        }
         
         // --- COMMON MARGIN ---
         if (node.type !== 'section' && node.type !== 'column') {
@@ -576,7 +618,10 @@ const Editor = {
 
     switchPanel(panel, event) {
         const pEl = document.getElementById('panel-elements');
+        const pAi = document.getElementById('panel-ai');
+        
         if (pEl) pEl.style.display = panel === 'elements' ? 'block' : 'none';
+        if (pAi) pAi.classList.toggle('hidden', panel !== 'ai');
         
         document.querySelectorAll('.panel-tab').forEach(el => el.classList.remove('active', 'border-brand-500', 'text-white'));
         
@@ -594,6 +639,99 @@ const Editor = {
         }
         
         // In a full version, we would filter 'property-controls' children based on data attributes
+    },
+
+    // AI Generation Logic
+    async generateSite() {
+        const promptInput = document.getElementById('ai-prompt-input');
+        const prompt = promptInput.value.toLowerCase();
+        const loading = document.getElementById('ai-loading');
+        const btn = document.getElementById('ai-gen-btn');
+        
+        if (!prompt) {
+            alert('Please enter a description for your site.');
+            return;
+        }
+
+        // UI Loading State
+        loading.classList.remove('hidden');
+        btn.classList.add('opacity-50', 'pointer-events-none');
+
+        // Simulate AI Processing Delay
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Procedural / Heuristic Generation based on keywords
+        // In a real app, this would call an LLM API to get the JSON structure
+        
+        let newStructure = [];
+        const timestamp = Date.now();
+
+        // Helper to create node
+        const mkSec = (bg, children = []) => ({
+            id: 'sec-' + Math.random().toString(36),
+            type: 'section',
+            props: { ...WIDGETS.section.defaultProps, bg },
+            children: [{
+                id: 'col-' + Math.random().toString(36),
+                type: 'column',
+                props: { width: 'w-full' },
+                children
+            }]
+        });
+
+        const mkWid = (type, propsOverride = {}) => ({
+            id: type + '-' + Math.random().toString(36),
+            type,
+            props: { ...WIDGETS[type].defaultProps, ...propsOverride },
+            children: []
+        });
+
+        // Heuristic Logic
+        
+        // 1. HERO SECTION
+        newStructure.push(mkSec('bg-brand-600', [
+            mkWid('heading', { text: 'Welcome to Your New Website', color: 'text-white', size: 'text-6xl' }),
+            mkWid('text', { text: 'We build digital experiences that matter.', color: 'text-white/90', align: 'text-center' }),
+            mkWid('button', { text: 'Get Started', variant: 'bg-white', color: 'text-brand-600' })
+        ]));
+
+        // 2. FEATURES / PORTFOLIO / CONTENT
+        if (prompt.includes('portfolio') || prompt.includes('photo')) {
+            newStructure.push(mkSec('bg-white', [
+                mkWid('heading', { text: 'My Work', color: 'text-gray-900' }),
+                mkWid('image', { src: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80' }),
+                mkWid('spacer'),
+                mkWid('image', { src: 'https://images.unsplash.com/photo-1558655146-d09347e0b7a8?auto=format&fit=crop&w=1200&q=80' })
+            ]));
+        } else if (prompt.includes('shop') || prompt.includes('store') || prompt.includes('coffee')) {
+            newStructure.push(mkSec('bg-white', [
+                mkWid('heading', { text: 'Our Menu', color: 'text-gray-900' }),
+                mkWid('text', { text: 'Freshly brewed perfection, every day.', align: 'text-center' }),
+                mkWid('image', { src: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=1200&q=80' })
+            ]));
+        } else {
+            // Generic Features
+             newStructure.push(mkSec('bg-gray-100', [
+                mkWid('heading', { text: 'Our Features', size: 'text-4xl' }),
+                mkWid('text', { text: 'Discover what makes us unique and why clients love us.' }),
+                mkWid('divider')
+            ]));
+        }
+
+        // 3. CONTACT / FORM
+        if (prompt.includes('contact') || prompt.includes('form') || true) { // Always add contact for "complete" feel
+            newStructure.push(mkSec('bg-gray-900', [
+                mkWid('heading', { text: 'Contact Us', color: 'text-white' }),
+                mkWid('form', { fields: 'Name, Email, Subject, Message', buttonText: 'Send Inquiry', bg: 'bg-gray-800 text-white' })
+            ]));
+        }
+
+        State.replaceNodes(newStructure);
+        
+        // Reset UI
+        loading.classList.add('hidden');
+        btn.classList.remove('opacity-50', 'pointer-events-none');
+        alert('AI Generation Complete!');
     },
 
     setDevice(device) {

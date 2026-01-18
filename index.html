@@ -26,7 +26,7 @@
                 <i class="fas fa-cubes"></i>
             </div>
             <div>
-                <h1 class="font-bold text-white text-sm tracking-wide">FlexiBuilder <span class="text-brand-400 font-normal">Lite</span></h1>
+                <h1 class="font-bold text-white text-sm tracking-wide">FlexiBuilder <span class="bg-gradient-to-r from-brand-400 to-pink-500 text-transparent bg-clip-text font-bold italic">PRO</span></h1>
             </div>
         </div>
         
@@ -63,6 +63,9 @@
                 <button onclick="Editor.switchPanel('elements', event)" class="panel-tab active flex-1 py-3 text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors border-b-2 border-brand-500 text-white">
                     <i class="fas fa-th mb-1 block text-lg"></i> Elements
                 </button>
+                <button onclick="Editor.switchPanel('ai', event)" class="panel-tab flex-1 py-3 text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors border-b-2 border-transparent text-gray-500">
+                    <i class="fas fa-magic mb-1 block text-lg"></i> AI Gen
+                </button>
                 <button onclick="Editor.switchPanel('global', event)" class="panel-tab flex-1 py-3 text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors border-b-2 border-transparent text-gray-500">
                     <i class="fas fa-globe mb-1 block text-lg"></i> Global
                 </button>
@@ -93,6 +96,34 @@
                         <div class="grid grid-cols-2 gap-2" id="media-widgets">
                             <!-- Injected via JS -->
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Panel -->
+            <div id="panel-ai" class="panel-content flex-1 overflow-y-auto custom-scrollbar p-5 hidden bg-gradient-to-b from-gray-900 to-gray-800">
+                <div class="bg-brand-900/30 border border-brand-500/30 rounded-xl p-4 mb-6">
+                    <div class="flex items-center gap-2 mb-2">
+                        <i class="fas fa-sparkles text-brand-400"></i>
+                        <h3 class="font-bold text-white text-sm">AI Architect</h3>
+                    </div>
+                    <p class="text-xs text-gray-400 leading-relaxed mb-0">Describe your dream website (e.g., "Minimalist portfolio for a photographer" or "SaaS landing page with pricing") and let AI build it.</p>
+                </div>
+
+                <div class="space-y-4">
+                    <textarea id="ai-prompt-input" class="w-full h-32 bg-gray-800 border border-gray-700 rounded-lg p-3 text-xs text-white focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none transition-all resize-none placeholder-gray-600" placeholder="E.g. Create a landing page for a coffee shop with a hero section, menu highlights, and a contact form..."></textarea>
+                    
+                    <button onclick="Editor.generateSite()" id="ai-gen-btn" class="w-full bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white py-3 rounded-lg text-xs font-bold uppercase tracking-wider shadow-lg shadow-brand-900/50 flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02]">
+                        <span>Generate Site</span> <i class="fas fa-magic"></i>
+                    </button>
+                    
+                    <div id="ai-loading" class="hidden text-center py-4">
+                        <div class="inline-flex gap-1.5 justify-center mb-2">
+                            <span class="w-1.5 h-1.5 bg-brand-400 rounded-full animate-bounce" style="animation-delay: 0s"></span>
+                            <span class="w-1.5 h-1.5 bg-brand-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></span>
+                            <span class="w-1.5 h-1.5 bg-brand-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
+                        </div>
+                        <p class="text-[10px] text-brand-300 font-mono uppercase">Analyzing Prompt...</p>
                     </div>
                 </div>
             </div>

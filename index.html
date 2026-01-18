@@ -12,201 +12,146 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     
     <!-- Custom Styles -->
     <link rel="stylesheet" href="css/styles.css">
 </head>
-<body>
+<body class="bg-gray-900 text-gray-300 h-screen flex flex-col overflow-hidden font-sans">
 
-<div class="app-container">
     <!-- Topbar -->
-    <header class="topbar">
+    <header class="h-14 bg-[#1f2937] border-b border-gray-700 flex items-center justify-between px-4 z-50 shadow-md">
         <div class="flex items-center gap-3">
-            <div class="bg-gradient-to-br from-brand-500 to-brand-700 text-white w-8 h-8 flex items-center justify-center rounded-lg shadow-lg shadow-brand-500/30">
-                <i class="fas fa-layer-group text-sm"></i>
+            <div class="bg-brand-600 text-white w-8 h-8 flex items-center justify-center rounded-md shadow-lg">
+                <i class="fas fa-cubes"></i>
             </div>
             <div>
-                <h1 class="font-bold text-white tracking-tight leading-none">FlexiBuilder</h1>
-                <span class="text-[10px] font-medium text-gray-500 uppercase tracking-widest">Pro Edition</span>
+                <h1 class="font-bold text-white text-sm tracking-wide">FlexiBuilder <span class="text-brand-400 font-normal">Lite</span></h1>
             </div>
         </div>
         
-        <div class="flex items-center gap-6">
-            <!-- Device Switcher -->
-            <div class="flex bg-gray-800 p-1 rounded-lg border border-gray-700">
-                <button onclick="setDevice('desktop')" id="dev-desktop" class="w-8 h-8 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 transition-all active"><i class="fas fa-desktop text-xs"></i></button>
-                <button onclick="setDevice('tablet')" id="dev-tablet" class="w-8 h-8 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 transition-all"><i class="fas fa-tablet-alt text-xs"></i></button>
-                <button onclick="setDevice('mobile')" id="dev-mobile" class="w-8 h-8 rounded flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 transition-all"><i class="fas fa-mobile-alt text-xs"></i></button>
+        <div class="flex items-center gap-4">
+            <!-- Responsive Switcher -->
+            <div class="flex bg-gray-800 rounded-md p-1 border border-gray-700">
+                <button onclick="Editor.setDevice('desktop')" class="device-btn active p-1.5 rounded hover:bg-gray-700 text-gray-400 hover:text-white transition-colors" data-device="desktop"><i class="fas fa-desktop"></i></button>
+                <button onclick="Editor.setDevice('tablet')" class="device-btn p-1.5 rounded hover:bg-gray-700 text-gray-400 hover:text-white transition-colors" data-device="tablet"><i class="fas fa-tablet-alt"></i></button>
+                <button onclick="Editor.setDevice('mobile')" class="device-btn p-1.5 rounded hover:bg-gray-700 text-gray-400 hover:text-white transition-colors" data-device="mobile"><i class="fas fa-mobile-alt"></i></button>
             </div>
 
-            <div class="h-6 w-px bg-gray-700"></div>
+            <div class="h-5 w-px bg-gray-700"></div>
 
-            <button onclick="togglePreview()" id="preview-btn" class="text-xs font-medium text-gray-300 hover:text-white flex items-center gap-2">
+            <button onclick="Editor.undo()" class="text-gray-400 hover:text-white transition-colors" title="Undo (Ctrl+Z)"><i class="fas fa-undo"></i></button>
+            <button onclick="Editor.redo()" class="text-gray-400 hover:text-white transition-colors" title="Redo (Ctrl+Y)"><i class="fas fa-redo"></i></button>
+
+            <div class="h-5 w-px bg-gray-700"></div>
+
+            <button onclick="Editor.togglePreview()" id="preview-btn" class="text-xs font-medium text-gray-300 hover:text-white flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-800 transition-colors">
                 <i class="fas fa-eye"></i> <span>Preview</span>
             </button>
-            <button onclick="clearCanvas()" class="text-xs font-medium text-gray-400 hover:text-red-400 transition-colors">Clear</button>
-            <button onclick="publishSite()" class="bg-brand-600 hover:bg-brand-500 text-white px-5 py-2 rounded-lg text-sm font-semibold shadow-lg shadow-brand-600/20 transition-all transform hover:scale-105">
-                Publish <i class="fas fa-rocket ml-1"></i>
+            <button onclick="Editor.publish()" class="bg-brand-600 hover:bg-brand-500 text-white px-4 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide transition-all shadow-lg shadow-brand-600/20">
+                Update
             </button>
         </div>
     </header>
 
-    <!-- Sidebar -->
-    <aside class="sidebar" id="sidebar">
-        <!-- Sidebar Tabs -->
-        <div class="flex border-b border-gray-700 bg-gray-900">
-            <button id="tab-widgets" class="tab-btn active flex-1 py-4 text-[11px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors">
-                <i class="fas fa-th-large mb-1 block text-sm"></i> Elements
-            </button>
-            <button id="tab-ai" class="tab-btn flex-1 py-4 text-[11px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors">
-                <i class="fas fa-magic mb-1 block text-sm"></i> AI Gen
-            </button>
-            <button id="tab-style" class="tab-btn flex-1 py-4 text-[11px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors">
-                <i class="fas fa-sliders-h mb-1 block text-sm"></i> Edit
-            </button>
-        </div>
-
-        <!-- Sidebar Content Area -->
-        <div class="sidebar-content custom-scrollbar">
+    <div class="flex-1 flex overflow-hidden">
+        <!-- Sidebar (Left) -->
+        <aside class="w-80 bg-[#1f2937] border-r border-gray-700 flex flex-col z-40 transition-all duration-300" id="sidebar">
             
-            <!-- WIDGETS PANEL -->
-            <div id="panel-widgets" class="p-5 space-y-8">
-                <div class="relative">
-                    <input type="text" placeholder="Search elements..." class="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 pl-9 pr-3 text-sm focus:ring-2 focus:ring-brand-500 outline-none text-white placeholder-gray-500 transition-all">
-                    <i class="fas fa-search absolute left-3 top-3 text-gray-500 text-xs"></i>
+            <!-- Sidebar Header / Tabs -->
+            <div class="flex border-b border-gray-700 bg-gray-900" id="panel-tabs">
+                <button onclick="Editor.switchPanel('elements')" class="panel-tab active flex-1 py-3 text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors border-b-2 border-brand-500 text-white">
+                    <i class="fas fa-th mb-1 block text-lg"></i> Elements
+                </button>
+                <button onclick="Editor.switchPanel('global')" class="panel-tab flex-1 py-3 text-[10px] font-bold uppercase tracking-wider hover:bg-gray-800 transition-colors border-b-2 border-transparent text-gray-500">
+                    <i class="fas fa-globe mb-1 block text-lg"></i> Global
+                </button>
+            </div>
+
+            <!-- Elements Panel -->
+            <div id="panel-elements" class="panel-content flex-1 overflow-y-auto custom-scrollbar p-4 block">
+                <div class="mb-4 relative">
+                     <input type="text" placeholder="Search widget..." class="w-full bg-gray-800 border border-gray-700 rounded p-2 pl-8 text-xs text-white focus:border-brand-500 outline-none transition-colors">
+                     <i class="fas fa-search absolute left-2.5 top-2.5 text-gray-500 text-xs"></i>
                 </div>
 
-                <div>
-                    <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Layout & Structure</h3>
-                    <div class="widget-grid">
-                        <div draggable="true" data-type="hero" class="widget-item group">
-                            <i class="fas fa-window-maximize text-blue-400 group-hover:text-white transition-colors"></i>
-                            <span>Hero Section</span>
-                        </div>
-                         <div draggable="true" data-type="card" class="widget-item group">
-                            <i class="far fa-id-card text-purple-400 group-hover:text-white transition-colors"></i>
-                            <span>Info Card</span>
-                        </div>
-                        <div draggable="true" data-type="spacer" class="widget-item group">
-                            <i class="fas fa-arrows-alt-v text-gray-400 group-hover:text-white transition-colors"></i>
-                            <span>Spacer</span>
-                        </div>
-                        <div draggable="true" data-type="divider" class="widget-item group">
-                            <i class="fas fa-minus text-gray-400 group-hover:text-white transition-colors"></i>
-                            <span>Divider</span>
+                <div class="space-y-6">
+                    <div>
+                        <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Layout</h3>
+                        <div class="grid grid-cols-2 gap-2" id="layout-widgets">
+                            <!-- Injected via JS -->
                         </div>
                     </div>
-                </div>
-
-                <div>
-                    <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Basic</h3>
-                    <div class="widget-grid">
-                        <div draggable="true" data-type="heading" class="widget-item group">
-                            <i class="fas fa-heading text-white"></i>
-                            <span>Heading</span>
+                    <div>
+                        <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Basic</h3>
+                        <div class="grid grid-cols-2 gap-2" id="basic-widgets">
+                            <!-- Injected via JS -->
                         </div>
-                        <div draggable="true" data-type="text" class="widget-item group">
-                            <i class="fas fa-paragraph text-gray-300"></i>
-                            <span>Text Block</span>
-                        </div>
-                        <div draggable="true" data-type="button" class="widget-item group">
-                            <i class="fas fa-toggle-on text-brand-500"></i>
-                            <span>Button</span>
-                        </div>
-                        <div draggable="true" data-type="image" class="widget-item group">
-                            <i class="far fa-image text-yellow-500"></i>
-                            <span>Image</span>
+                    </div>
+                     <div>
+                        <h3 class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Media</h3>
+                        <div class="grid grid-cols-2 gap-2" id="media-widgets">
+                            <!-- Injected via JS -->
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- AI PANEL -->
-            <div id="panel-ai" class="p-5 space-y-6 hidden">
-                <div class="bg-gradient-to-b from-brand-900 to-transparent p-4 rounded-xl border border-brand-700/50">
-                    <h3 class="text-sm font-bold text-white mb-2 flex items-center gap-2"><i class="fas fa-sparkles text-brand-400"></i> AI Architect</h3>
-                    <p class="text-xs text-gray-400 leading-relaxed mb-4">Describe a section (e.g., "Pricing table with 3 cards" or "Dark footer") and let Gemini build it.</p>
-                    
-                    <textarea id="ai-prompt" placeholder="Describe what you want to build..." 
-                        class="w-full h-32 text-sm bg-gray-800 border-gray-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-brand-500 outline-none transition-all resize-none"></textarea>
-                    
-                    <button id="ai-generate-btn" class="w-full mt-3 bg-brand-600 hover:bg-brand-500 text-white py-3 rounded-lg font-bold text-xs uppercase tracking-wide shadow-lg shadow-brand-900/50 flex items-center justify-center gap-2 transition-all">
-                        <span>Generate Layout</span>
-                    </button>
-                    
-                    <!-- Loading State -->
-                    <div id="ai-loading" class="hidden mt-4 text-center">
-                        <div class="inline-flex gap-1 items-center mb-2">
-                            <span class="w-1.5 h-1.5 bg-brand-400 rounded-full animate-bounce" style="animation-delay: 0s"></span>
-                            <span class="w-1.5 h-1.5 bg-brand-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></span>
-                            <span class="w-1.5 h-1.5 bg-brand-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></span>
-                        </div>
-                        <p class="text-[10px] text-brand-300 font-mono">PROCESSING REQUEST...</p>
-                    </div>
+            <!-- Edit Property Panel (Hidden by default, overlays elements) -->
+            <div id="panel-editor" class="panel-content absolute inset-0 bg-[#1f2937] flex flex-col hidden transform transition-transform duration-200 translate-x-full">
+                <div class="h-12 border-b border-gray-700 flex items-center justify-between px-4 bg-gray-800">
+                    <h3 class="font-bold text-sm text-white truncate" id="editor-title">Edit Heading</h3>
+                    <button onclick="Editor.closePropertyPanel()" class="text-gray-400 hover:text-white"><i class="fas fa-times"></i></button>
+                </div>
+                
+                <!-- Property Tabs -->
+                <div class="flex border-b border-gray-700 bg-gray-800/50">
+                    <button onclick="Editor.switchPropertyTab('content')" class="prop-tab active flex-1 py-2 text-[10px] font-bold uppercase tracking-wider hover:bg-gray-700 border-b-2 border-brand-500 text-white" data-tab="content">Content</button>
+                    <button onclick="Editor.switchPropertyTab('style')" class="prop-tab flex-1 py-2 text-[10px] font-bold uppercase tracking-wider hover:bg-gray-700 border-b-2 border-transparent text-gray-500" data-tab="style">Style</button>
+                    <button onclick="Editor.switchPropertyTab('advanced')" class="prop-tab flex-1 py-2 text-[10px] font-bold uppercase tracking-wider hover:bg-gray-700 border-b-2 border-transparent text-gray-500" data-tab="advanced">Advanced</button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-5" id="property-controls">
+                    <!-- Dynamic Controls -->
                 </div>
             </div>
 
-            <!-- EDITOR PANEL -->
-            <div id="panel-editor" class="p-5 hidden">
-                <div id="editor-empty" class="flex flex-col items-center justify-center py-20 text-gray-600">
-                    <i class="fas fa-mouse-pointer text-4xl mb-4 opacity-50"></i>
-                    <p class="text-sm">Select an element to edit</p>
+        </aside>
+
+        <!-- Canvas Area -->
+        <main class="flex-1 bg-gray-900 relative overflow-hidden flex flex-col items-center justify-start pt-8 pb-20 px-8" id="canvas-container">
+            
+            <!-- Breadcrumbs / Navigator Bar -->
+            <div class="absolute top-0 left-0 right-0 h-8 bg-gray-800/80 backdrop-blur border-b border-white/5 flex items-center px-4 z-30 opacity-0 hover:opacity-100 transition-opacity">
+                 <div class="text-[10px] font-mono text-gray-400" id="breadcrumbs">Document</div>
+            </div>
+
+            <!-- Iframe Wrapper for Isolation (Simulated with Div for now for easier DnD interaction) -->
+            <div id="viewport-wrapper" class="bg-white shadow-2xl transition-all duration-300 relative desktop flex flex-col min-h-[85vh]">
+                <!-- The Actual Builder Canvas -->
+                <div id="builder-canvas" class="flex-1 min-h-full">
+                    <!-- Drop Zone -->
                 </div>
-
-                <div id="editor-content" class="hidden space-y-6">
-                    <div class="flex items-center justify-between border-b border-gray-700 pb-4">
-                        <h3 id="editing-label" class="text-sm font-bold text-white">Heading</h3>
-                        <button onclick="deleteSelectedElement()" class="text-xs text-red-400 hover:text-red-300 bg-red-400/10 px-2 py-1 rounded transition-colors"><i class="fas fa-trash-alt mr-1"></i> Delete</button>
+                
+                <!-- Add Section Button (Empty State) -->
+                <div class="p-8 border-2 border-dashed border-gray-300 m-4 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:border-brand-500 hover:text-brand-500 transition-colors cursor-pointer group bg-gray-50" onclick="Editor.addNewSection()">
+                    <div class="w-12 h-12 rounded-full bg-gray-200 group-hover:bg-brand-100 flex items-center justify-center mb-2 transition-colors">
+                        <i class="fas fa-plus text-xl"></i>
                     </div>
-
-                    <div id="prop-controls" class="space-y-5">
-                        <!-- Dynamic Controls Injected Here -->
-                    </div>
+                    <span class="text-xs font-bold uppercase tracking-wide">Add New Section</span>
                 </div>
             </div>
-        </div>
-    </aside>
 
-    <!-- Main Canvas -->
-    <main class="canvas-area">
-        <!-- Viewport Header Simulation -->
-        <div id="viewport-wrapper" class="desktop">
-             <div class="bg-gray-100 border-b border-gray-200 px-4 py-2 flex items-center gap-2 rounded-t-lg">
-                <div class="flex gap-1.5">
-                    <div class="w-2.5 h-2.5 rounded-full bg-red-400"></div>
-                    <div class="w-2.5 h-2.5 rounded-full bg-yellow-400"></div>
-                    <div class="w-2.5 h-2.5 rounded-full bg-green-400"></div>
-                </div>
-                <div class="flex-1 text-center">
-                    <div class="bg-white text-[10px] text-gray-400 py-0.5 px-3 rounded-md inline-block border border-gray-200 w-1/2">mysite.com</div>
-                </div>
-             </div>
-             
-             <!-- Actual Builder Canvas -->
-            <div id="builder-canvas">
-                <div class="canvas-empty-state">
-                    <i class="fas fa-layer-group text-4xl mb-3 opacity-30"></i>
-                    <p class="text-sm font-medium">Drag elements here to build</p>
-                    <p class="text-xs mt-1 opacity-60">or ask AI to generate a layout</p>
-                </div>
-            </div>
-        </div>
-    </main>
-</div>
-
-<!-- Toast Notification -->
-<div id="toast" class="fixed bottom-6 right-6 transform translate-y-20 opacity-0 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-2xl border border-gray-700 transition-all duration-300 z-[100] flex items-center gap-3">
-    <div id="toast-icon-container" class="bg-green-500/20 text-green-400 w-8 h-8 rounded-full flex items-center justify-center">
-        <i id="toast-icon" class="fas fa-check"></i>
+        </main>
+        
+        <!-- Right Sidebar (Navigator) - Optional, maybe for future -->
     </div>
-    <div>
-        <h4 id="toast-title" class="text-sm font-bold">Success</h4>
-        <p id="toast-msg" class="text-xs text-gray-400">Action completed successfully.</p>
+
+    <!-- Drag Ghost Template (Hidden) -->
+    <div id="drag-ghost" class="fixed top-0 left-0 bg-brand-600 text-white p-2 rounded shadow-xl pointer-events-none z-[100] hidden text-xs font-bold uppercase">
+        <i class="fas fa-arrows-alt mr-2"></i> <span>Widget</span>
     </div>
-</div>
 
-<!-- Application Logic -->
-<script src="js/app.js"></script>
-
+    <script src="js/app.js"></script>
 </body>
 </html>

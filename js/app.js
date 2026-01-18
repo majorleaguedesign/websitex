@@ -1,541 +1,590 @@
-// --- State & Config ---
-let pageElements = [];
-let selectedElementId = null;
-let isPreviewMode = false;
-const apiKey = ""; // Set by environment
+/**
+ * FlexiBuilder Lite - Core Engine
+ * A lightweight, Elementor-like page builder.
+ */
 
-// --- DOM Elements ---
-const canvas = document.getElementById('builder-canvas');
-const viewport = document.getElementById('viewport-wrapper');
-const sidebar = document.getElementById('sidebar');
-const toast = document.getElementById('toast');
+// --- Constants & Config ---
 
-// --- Advanced Widget Templates ---
-// Using inline styles for maximum portability in the generated HTML
-const widgetTemplates = {
+const WIDGETS = {
+    section: { 
+        type: 'section', label: 'Section', icon: 'fa-columns', category: 'layout',
+        defaultProps: { height: 'min-h-[200px]', bg: 'bg-transparent', padding: 'p-10', boxed: true }
+    },
     heading: { 
-        type: 'heading', label: 'Heading', 
-        content: 'Design Your Vision', 
-        color: '#111827', fontSize: '42', textAlign: 'center', marginTop: '0', marginBottom: '16' 
+        type: 'heading', label: 'Heading', icon: 'fa-heading', category: 'basic',
+        defaultProps: { text: 'Add Your Heading Text Here', tag: 'h2', align: 'text-center', color: 'text-gray-900', size: 'text-4xl', weight: 'font-bold', margin: 'mb-4' }
     },
     text: { 
-        type: 'text', label: 'Text Block', 
-        content: 'Create beautiful websites with drag and drop simplicity. No coding required.', 
-        color: '#4b5563', fontSize: '16', textAlign: 'center', marginTop: '0', marginBottom: '24' 
+        type: 'text', label: 'Text Editor', icon: 'fa-paragraph', category: 'basic',
+        defaultProps: { text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut elit tellus, luctus nec ullamcorper mattis, pulvinar dapibus leo.', align: 'text-left', color: 'text-gray-600', size: 'text-base', margin: 'mb-4' }
     },
     button: { 
-        type: 'button', label: 'Button', 
-        content: 'Get Started', 
-        bgColor: '#4f46e5', color: '#ffffff', borderRadius: '6', textAlign: 'center', 
-        paddingY: '12', paddingX: '32', fontSize: '14'
+        type: 'button', label: 'Button', icon: 'fa-mouse', category: 'basic',
+        defaultProps: { text: 'Click Here', link: '#', align: 'text-center', variant: 'bg-brand-600', color: 'text-white', size: 'px-8 py-3', radius: 'rounded-md', margin: 'my-4' }
     },
     image: { 
-        type: 'image', label: 'Image', 
-        url: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80', 
-        borderRadius: '8', width: '100', textAlign: 'center' 
+        type: 'image', label: 'Image', icon: 'fa-image', category: 'media',
+        defaultProps: { src: 'https://via.placeholder.com/800x600', alt: 'Image', width: 'w-full', radius: 'rounded-lg', shadow: 'shadow-none' }
     },
-    card: {
-        type: 'card', label: 'Card Component',
-        title: 'Feature Card', text: 'This is a great place to highlight a specific feature or service you offer.',
-        imageUrl: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=800&q=80',
-        bgColor: '#ffffff', borderRadius: '12', shadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+    video: {
+        type: 'video', label: 'Video', icon: 'fa-play', category: 'media',
+        defaultProps: { src: 'https://www.youtube.com/embed/dQw4w9WgXcQ', ratio: 'aspect-video' }
     },
-    hero: {
-        type: 'hero', label: 'Hero Section',
-        headline: 'Build Something Amazing', subheadline: 'The fastest way to go from idea to reality.',
-        bgImage: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1600&q=80',
-        overlayOpacity: '0.7', textColor: '#ffffff', minHeight: '400'
+    spacer: {
+        type: 'spacer', label: 'Spacer', icon: 'fa-arrows-alt-v', category: 'layout',
+        defaultProps: { height: 'h-12' }
     },
-    spacer: { type: 'spacer', label: 'Spacer', height: '50' },
-    divider: { type: 'divider', label: 'Divider', color: '#e5e7eb', thickness: '1', width: '100', textAlign: 'center' }
+    divider: {
+        type: 'divider', label: 'Divider', icon: 'fa-minus', category: 'layout',
+        defaultProps: { style: 'border-gray-200', width: 'w-full', margin: 'my-6' }
+    }
 };
 
-// --- Initialization ---
+// --- State Management ---
 
-function init() {
-    // DOM Elements need to be fetched after load if they weren't found initially
-    // However, since we use defer or load at end of body, they should be available.
-    // Re-assigning them here just in case this runs before DOM ready (if not using defer correctly)
-    
-    loadFromStorage();
-    setupDragAndDrop();
-    setupTabs();
-    setupAI();
-    
-    // Auto-save loop
-    setInterval(saveToStorage, 5000);
-}
-
-// --- Core Layout Logic ---
-
-function renderCanvas() {
-    const canvas = document.getElementById('builder-canvas');
-    if (!canvas) return;
-
-    if (pageElements.length === 0) {
-        canvas.innerHTML = `
-            <div class="canvas-empty-state">
-                <i class="fas fa-layer-group text-4xl mb-3 opacity-30"></i>
-                <p class="text-sm font-medium">Drag elements here to build</p>
-                <p class="text-xs mt-1 opacity-60">or ask AI to generate a layout</p>
-            </div>`;
-        return;
+class StateManager {
+    constructor() {
+        this.nodes = []; // Root sections
+        this.selectedId = null;
+        this.history = [];
+        this.historyIndex = -1;
+        this.device = 'desktop';
+        
+        // Initial State
+        this.saveState();
     }
 
-    canvas.innerHTML = '';
-    pageElements.forEach(el => {
-        const wrapper = document.createElement('div');
-        wrapper.className = `editable-element ${selectedElementId === el.id ? 'active' : ''}`;
-        wrapper.dataset.id = el.id;
+    get(id) {
+        // Recursive find
+        const find = (nodes) => {
+            for (let node of nodes) {
+                if (node.id === id) return node;
+                if (node.children) {
+                    const found = find(node.children);
+                    if (found) return found;
+                }
+            }
+            return null;
+        };
+        return find(this.nodes);
+    }
+
+    addSection() {
+        this.pushHistory();
+        const id = 'sec-' + Date.now();
+        const colId = 'col-' + Date.now();
         
-        // Interaction Handlers
-        wrapper.onclick = (e) => { 
-            if(isPreviewMode) return;
-            e.stopPropagation(); 
-            selectElement(el.id); 
+        const newSection = {
+            id: id,
+            type: 'section',
+            props: { ...WIDGETS.section.defaultProps },
+            children: [
+                {
+                    id: colId,
+                    type: 'column',
+                    props: { width: 'w-full' },
+                    children: []
+                }
+            ]
+        };
+        
+        this.nodes.push(newSection);
+        Editor.render();
+        Editor.select(id);
+    }
+
+    addWidget(parentId, type) {
+        this.pushHistory();
+        const parent = this.get(parentId);
+        if (!parent) return;
+
+        const newWidget = {
+            id: type + '-' + Date.now(),
+            type: type,
+            props: { ...WIDGETS[type].defaultProps },
+            children: [] // Widgets mostly don't have children in this lite version
         };
 
-        // Label
-        const label = document.createElement('div');
-        label.className = 'element-label';
-        label.innerHTML = `${el.label || el.type}`;
-        wrapper.appendChild(label);
-
-        // Render Content
-        wrapper.innerHTML += getWidgetHTML(el);
-        canvas.appendChild(wrapper);
-    });
-}
-
-function getWidgetHTML(el) {
-    // Safe defaults
-    const style = (props) => props.map(p => p).join('; ');
-    
-    switch(el.type) {
-        case 'heading':
-            return `<h2 style="color: ${el.color}; font-size: ${el.fontSize}px; text-align: ${el.textAlign}; margin-top: ${el.marginTop}px; margin-bottom: ${el.marginBottom}px; font-weight: 800; line-height: 1.2;">${el.content}</h2>`;
-        
-        case 'text':
-            return `<p style="color: ${el.color}; font-size: ${el.fontSize}px; text-align: ${el.textAlign}; margin-top: ${el.marginTop}px; margin-bottom: ${el.marginBottom}px; line-height: 1.6;">${el.content}</p>`;
-        
-        case 'button':
-            return `<div style="text-align: ${el.textAlign}; margin: 10px 0;">
-                <button style="background: ${el.bgColor}; color: ${el.color}; border-radius: ${el.borderRadius}px; padding: ${el.paddingY}px ${el.paddingX}px; font-size: ${el.fontSize}px; font-weight: 600; border: none; cursor: pointer; transition: transform 0.1s;">${el.content}</button>
-            </div>`;
-        
-        case 'image':
-            return `<div style="text-align: ${el.textAlign}; margin: 10px 0;">
-                <img src="${el.url}" style="width: ${el.width}%; border-radius: ${el.borderRadius}px; max-width: 100%; height: auto; display: inline-block; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);" onerror="this.src='https://via.placeholder.com/800x400?text=No+Image'"/>
-            </div>`;
-
-        case 'card':
-            return `<div style="background: ${el.bgColor}; border-radius: ${el.borderRadius}px; box-shadow: ${el.shadow}; overflow: hidden; max-width: 400px; margin: 0 auto;">
-                <img src="${el.imageUrl}" style="width: 100%; height: 200px; object-fit: cover;">
-                <div style="padding: 24px;">
-                    <h3 style="font-size: 20px; font-weight: 700; color: #111827; margin-bottom: 8px;">${el.title}</h3>
-                    <p style="color: #6b7280; font-size: 14px; line-height: 1.5;">${el.text}</p>
-                </div>
-            </div>`;
-
-        case 'hero':
-            return `<div style="position: relative; min-height: ${el.minHeight}px; background-image: url('${el.bgImage}'); background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; text-align: center; border-radius: 8px; overflow: hidden;">
-                <div style="position: absolute; inset: 0; background: black; opacity: ${el.overlayOpacity};"></div>
-                <div style="position: relative; z-index: 10; padding: 40px; max-width: 800px;">
-                    <h1 style="color: ${el.textColor}; font-size: 48px; font-weight: 900; margin-bottom: 16px; line-height: 1.1;">${el.headline}</h1>
-                    <p style="color: ${el.textColor}; font-size: 18px; opacity: 0.9;">${el.subheadline}</p>
-                </div>
-            </div>`;
-        
-        case 'spacer':
-            return `<div style="height: ${el.height}px; width: 100%;"></div>`;
-        
-        case 'divider':
-            return `<div style="text-align: ${el.textAlign}; padding: 10px 0;"><div style="display: inline-block; width: ${el.width}%; border-top: ${el.thickness}px solid ${el.color};"></div></div>`;
-        
-        default: return '';
-    }
-}
-
-// --- Property Editor Logic ---
-
-function renderEditorPanel() {
-    const panel = document.getElementById('panel-editor');
-    const emptyState = document.getElementById('editor-empty');
-    const content = document.getElementById('editor-content');
-    const propControls = document.getElementById('prop-controls');
-
-    // Ensure Editor Tab is active
-    switchTab('style');
-
-    if (!selectedElementId) {
-        emptyState.classList.remove('hidden');
-        content.classList.add('hidden');
-        return;
+        parent.children.push(newWidget);
+        Editor.render();
+        Editor.select(newWidget.id);
     }
 
-    const el = pageElements.find(e => e.id === selectedElementId);
-    if(!el) return; // Safety
-
-    emptyState.classList.add('hidden');
-    content.classList.remove('hidden');
-    document.getElementById('editing-label').innerText = `Edit ${el.label}`;
-
-    propControls.innerHTML = '';
-
-    // Intelligently generate controls
-    Object.keys(el).forEach(key => {
-        if (['id', 'type', 'label'].includes(key)) return;
-
-        const group = document.createElement('div');
-        group.className = 'space-y-2';
-
-        const label = document.createElement('label');
-        label.className = 'text-[11px] text-gray-400 font-bold uppercase tracking-wider block';
-        label.innerText = key.replace(/([A-Z])/g, ' $1'); // camelCase to Space
-        group.appendChild(label);
-
-        let input;
-
-        // Determines Input Type based on key name or value
-        if (key === 'content' || key === 'text' || key === 'subheadline') {
-            input = document.createElement('textarea');
-            input.rows = 3;
-            input.className = 'w-full bg-gray-800 border border-gray-700 rounded-md text-sm text-white p-2 focus:ring-1 focus:ring-brand-500 outline-none';
-            input.value = el[key];
-            input.oninput = (e) => updateProperty(key, e.target.value);
-        
-        } else if (key.toLowerCase().includes('color')) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'flex items-center gap-2 bg-gray-800 p-2 rounded-md border border-gray-700';
-            
-            input = document.createElement('input');
-            input.type = 'color';
-            input.className = 'w-8 h-8 rounded cursor-pointer border-none bg-transparent';
-            input.value = el[key];
-            input.oninput = (e) => {
-                const textInput = wrapper.querySelector('input[type=text]');
-                if(textInput) textInput.value = e.target.value;
-                updateProperty(key, e.target.value);
-            };
-
-            const textInput = document.createElement('input');
-            textInput.type = 'text';
-            textInput.className = 'bg-transparent text-white text-xs font-mono focus:outline-none flex-1';
-            textInput.value = el[key];
-            textInput.onchange = (e) => {
-                input.value = e.target.value;
-                updateProperty(key, e.target.value);
-            }
-
-            wrapper.appendChild(input);
-            wrapper.appendChild(textInput);
-            group.appendChild(wrapper);
-            propControls.appendChild(group);
-            return; // Special return for color complex input
-
-        } else if (key === 'textAlign') {
-            input = document.createElement('div');
-            input.className = 'flex bg-gray-800 rounded-md border border-gray-700 p-1';
-            ['left', 'center', 'right'].forEach(align => {
-                const btn = document.createElement('button');
-                btn.className = `flex-1 py-1 rounded text-xs ${el[key] === align ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-white'}`;
-                btn.innerHTML = `<i class="fas fa-align-${align}"></i>`;
-                btn.onclick = () => {
-                    updateProperty(key, align);
-                    // Refresh to update active state
-                    renderEditorPanel(); 
-                };
-                input.appendChild(btn);
-            });
-
-        } else if (['fontSize', 'borderRadius', 'paddingX', 'paddingY', 'marginTop', 'marginBottom', 'width', 'minHeight', 'height', 'thickness', 'overlayOpacity'].includes(key)) {
-            // Range Slider + Number Input Combo
-            const wrapper = document.createElement('div');
-            wrapper.className = 'flex items-center gap-3';
-            
-            const range = document.createElement('input');
-            range.type = 'range';
-            // Determine limits
-            range.min = (key === 'overlayOpacity') ? 0 : 0;
-            range.max = (key === 'width' || key === 'overlayOpacity') ? (key === 'overlayOpacity' ? 1 : 100) : (key === 'minHeight' ? 800 : 100);
-            range.step = (key === 'overlayOpacity') ? 0.1 : 1;
-            range.value = el[key];
-            range.className = 'flex-1';
-            
-            const numInput = document.createElement('input');
-            numInput.type = 'number';
-            numInput.className = 'w-16 bg-gray-800 border border-gray-700 rounded text-xs text-white p-1 text-center';
-            numInput.value = el[key];
-
-            range.oninput = (e) => {
-                numInput.value = e.target.value;
-                updateProperty(key, e.target.value);
-            };
-            numInput.oninput = (e) => {
-                range.value = e.target.value;
-                updateProperty(key, e.target.value);
-            };
-
-            wrapper.appendChild(range);
-            wrapper.appendChild(numInput);
-            group.appendChild(wrapper);
-            propControls.appendChild(group);
-            return;
-
-        } else {
-            input = document.createElement('input');
-            input.type = 'text';
-            input.className = 'w-full bg-gray-800 border border-gray-700 rounded-md text-sm text-white p-2 focus:ring-1 focus:ring-brand-500 outline-none';
-            input.value = el[key];
-            input.oninput = (e) => updateProperty(key, e.target.value);
+    updateProp(id, key, value) {
+        const node = this.get(id);
+        if (node) {
+            node.props[key] = value;
+            Editor.render(); // Re-render to show changes
+            // Debounce history push could be added here
         }
+    }
 
-        if(input) group.appendChild(input);
-        propControls.appendChild(group);
-    });
-}
+    delete(id) {
+        this.pushHistory();
+        // Helper to remove node from tree
+        const remove = (nodes) => {
+            const idx = nodes.findIndex(n => n.id === id);
+            if (idx > -1) {
+                nodes.splice(idx, 1);
+                return true;
+            }
+            for (let node of nodes) {
+                if (node.children && remove(node.children)) return true;
+            }
+            return false;
+        };
 
-function updateProperty(key, value) {
-    const el = pageElements.find(e => e.id === selectedElementId);
-    if (el) {
-        el[key] = value;
-        renderCanvas();
+        remove(this.nodes);
+        this.selectedId = null;
+        Editor.render();
+        Editor.closePropertyPanel();
+    }
+
+    // History Logic
+    pushHistory() {
+        // Remove redo stack
+        if (this.historyIndex < this.history.length - 1) {
+            this.history = this.history.slice(0, this.historyIndex + 1);
+        }
+        this.history.push(JSON.parse(JSON.stringify(this.nodes)));
+        this.historyIndex++;
+        if (this.history.length > 20) {
+            this.history.shift();
+            this.historyIndex--;
+        }
+    }
+
+    undo() {
+        if (this.historyIndex > 0) {
+            this.historyIndex--;
+            this.nodes = JSON.parse(JSON.stringify(this.history[this.historyIndex]));
+            Editor.render();
+        }
+    }
+
+    redo() {
+        if (this.historyIndex < this.history.length - 1) {
+            this.historyIndex++;
+            this.nodes = JSON.parse(JSON.stringify(this.history[this.historyIndex]));
+            Editor.render();
+        }
     }
 }
 
-function selectElement(id) {
-    selectedElementId = id;
-    renderCanvas();
-    renderEditorPanel();
-}
+const State = new StateManager();
 
-// Make functions available globally for HTML event handlers
-window.deleteSelectedElement = function() {
-    if (!selectedElementId) return;
-    pageElements = pageElements.filter(el => el.id !== selectedElementId);
-    selectedElementId = null;
-    renderCanvas();
-    renderEditorPanel();
-    showToast('Element Deleted', 'Widget removed from page.');
-}
+// --- Editor Engine ---
 
-// --- Drag and Drop ---
+const Editor = {
+    init() {
+        this.renderSidebar();
+        this.render();
+        this.initDragAndDrop();
+    },
 
-function setupDragAndDrop() {
-    const canvas = document.getElementById('builder-canvas');
-    const widgets = document.querySelectorAll('.widget-item');
-    widgets.forEach(w => {
-        w.addEventListener('dragstart', (e) => {
-            e.dataTransfer.setData('type', w.dataset.type);
+    renderSidebar() {
+        // Render widget list in sidebar
+        const categories = { layout: [], basic: [], media: [] };
+        
+        Object.entries(WIDGETS).forEach(([key, w]) => {
+            if(key === 'section') return; // Handled by "Add Section" button
+            categories[w.category].push(w);
         });
-    });
 
-    canvas.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        canvas.querySelector('.canvas-empty-state')?.classList.add('drag-over');
-    });
-    canvas.addEventListener('dragleave', (e) => {
-        canvas.querySelector('.canvas-empty-state')?.classList.remove('drag-over');
-    });
-    canvas.addEventListener('drop', (e) => {
-        e.preventDefault();
-        const type = e.dataTransfer.getData('type');
-        if (type && widgetTemplates[type]) {
-            const newEl = { id: 'el-' + Date.now(), ...JSON.parse(JSON.stringify(widgetTemplates[type])) };
-            pageElements.push(newEl);
-            renderCanvas();
-            selectElement(newEl.id);
-            showToast('Widget Added', `Added ${newEl.label} to canvas.`);
-        }
-    });
-}
+        const mkItem = (w) => `
+            <div class="widget-item bg-gray-800 border border-gray-700 hover:border-brand-500 hover:bg-gray-750 p-3 rounded cursor-grab flex flex-col items-center gap-2 transition-all group" draggable="true" data-type="${w.type}">
+                <i class="fas ${w.icon} text-xl text-gray-500 group-hover:text-brand-400"></i>
+                <span class="text-[10px] font-semibold uppercase tracking-wide text-gray-400 group-hover:text-white">${w.label}</span>
+            </div>
+        `;
 
-// --- AI Logic ---
+        document.getElementById('layout-widgets').innerHTML = categories.layout.map(mkItem).join('');
+        document.getElementById('basic-widgets').innerHTML = categories.basic.map(mkItem).join('');
+        document.getElementById('media-widgets').innerHTML = categories.media.map(mkItem).join('');
 
-function setupAI() {
-    document.getElementById('ai-generate-btn').addEventListener('click', async () => {
-        const prompt = document.getElementById('ai-prompt').value;
-        if (!prompt) return showToast('Error', 'Please enter a description.', 'error');
+        this.setupSidebarDrag();
+    },
 
-        const loading = document.getElementById('ai-loading');
-        const btn = document.getElementById('ai-generate-btn');
-        
-        loading.classList.remove('hidden');
-        btn.classList.add('opacity-50', 'pointer-events-none');
+    setupSidebarDrag() {
+        const draggables = document.querySelectorAll('.widget-item');
+        draggables.forEach(el => {
+            el.addEventListener('dragstart', e => {
+                e.dataTransfer.setData('type', el.dataset.type);
+                e.dataTransfer.effectAllowed = 'copy';
+            });
+        });
+    },
 
-        // Construct System Prompt based on known schemas
-        const systemPrompt = `Generate a JSON array of website widgets based on the user request.
-        Use ONLY these types: ${Object.keys(widgetTemplates).join(', ')}.
-        Format: [{"type": "heading", "content": "...", "color": "#HEX", ...props}].
-        For 'hero' type, include headline, subheadline, bgImage.
-        For 'card' type, include title, text, imageUrl.
-        Make the design modern and cohesive.`;
+    initDragAndDrop() {
+        // Main Container Sorting (Sections)
+        new Sortable(document.getElementById('builder-canvas'), {
+            animation: 150,
+            handle: '.section-handle', // Only drag via handle
+            onEnd: (evt) => {
+                // Reorder State.nodes based on evt.oldIndex and evt.newIndex
+                const item = State.nodes.splice(evt.oldIndex, 1)[0];
+                State.nodes.splice(evt.newIndex, 0, item);
+                State.pushHistory();
+            }
+        });
+    },
 
-        try {
-            // Simulate network delay for UX if API key is missing, otherwise real call
-            if (!apiKey) {
-                await new Promise(r => setTimeout(r, 2000));
-                // Mock Response
-                pageElements.push({ id: 'el-'+Date.now(), ...widgetTemplates.heading, content: "Generated by AI" });
-                pageElements.push({ id: 'el-'+(Date.now()+1), ...widgetTemplates.text, content: "This is a mock response because no API Key is set in the code." });
-            } else {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }],
-                        systemInstruction: { parts: [{ text: systemPrompt }] },
-                        generationConfig: { responseMimeType: "application/json" }
-                    })
-                });
-                const data = await response.json();
-                let aiWidgets = [];
-                try {
-                    aiWidgets = JSON.parse(data.candidates[0].content.parts[0].text);
-                } catch (jsonError) {
-                    console.error("Failed to parse AI response", jsonError);
-                    throw new Error("Invalid response from AI");
-                }
-                
-                // Merge properties carefully
-                aiWidgets.forEach(w => {
-                    const template = widgetTemplates[w.type];
-                    if (template) {
-                        pageElements.push({ ...template, ...w, id: 'el-'+Math.random().toString(36).substr(2,9) });
+    // Refresh Sortable on Columns after render
+    refreshSortables() {
+        const columns = document.querySelectorAll('.builder-column');
+        columns.forEach(col => {
+            new Sortable(col, {
+                group: 'widgets', // Allow dragging between columns
+                animation: 150,
+                ghostClass: 'bg-brand-100/10',
+                onAdd: (evt) => {
+                    // Logic for drop from sidebar is handled via 'drop' event listener usually, 
+                    // or we can use Sortable's data transfer.
+                    // For simplicity in this Lite version, we handle internal reordering here.
+                    // External drops are handled by standard DnD listeners below.
+                },
+                onEnd: (evt) => {
+                    const fromColId = evt.from.dataset.id;
+                    const toColId = evt.to.dataset.id;
+                    const oldIndex = evt.oldIndex;
+                    const newIndex = evt.newIndex;
+                    
+                    // Logic to move widget in State
+                    const fromCol = State.get(fromColId);
+                    const toCol = State.get(toColId);
+                    
+                    if (fromCol && toCol) {
+                        const item = fromCol.children.splice(oldIndex, 1)[0];
+                        toCol.children.splice(newIndex, 0, item);
+                        State.pushHistory();
+                        // We don't need to re-render here because DOM matches state, 
+                        // unless we want to clean up classes
                     }
+                }
+            });
+            
+            // Native Drop for Sidebar Items
+            col.addEventListener('dragover', e => {
+                e.preventDefault();
+                col.classList.add('bg-brand-500/10', 'ring-2', 'ring-brand-500', 'ring-inset');
+            });
+            col.addEventListener('dragleave', e => {
+                col.classList.remove('bg-brand-500/10', 'ring-2', 'ring-brand-500', 'ring-inset');
+            });
+            col.addEventListener('drop', e => {
+                e.preventDefault();
+                col.classList.remove('bg-brand-500/10', 'ring-2', 'ring-brand-500', 'ring-inset');
+                const type = e.dataTransfer.getData('type');
+                if (type && WIDGETS[type]) {
+                    State.addWidget(col.dataset.id, type);
+                }
+            });
+        });
+    },
+
+    render() {
+        const canvas = document.getElementById('builder-canvas');
+        canvas.innerHTML = '';
+
+        State.nodes.forEach(section => {
+            canvas.appendChild(this.renderSection(section));
+        });
+        
+        this.refreshSortables();
+    },
+
+    renderSection(node) {
+        const el = document.createElement('div');
+        el.className = `group relative border-2 border-transparent hover:border-brand-500 transition-colors ${node.props.padding} ${node.props.bg} ${node.props.height} flex flex-col justify-center`;
+        el.dataset.id = node.id;
+        
+        // Selection State
+        if (State.selectedId === node.id) {
+            el.classList.add('border-brand-500', 'ring-4', 'ring-brand-500/20');
+        }
+
+        el.onclick = (e) => { e.stopPropagation(); this.select(node.id); };
+
+        // Handle
+        const handle = document.createElement('div');
+        handle.className = 'section-handle absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-full bg-brand-500 text-white text-[10px] font-bold px-3 py-1 rounded-t cursor-grab opacity-0 group-hover:opacity-100 transition-opacity z-20 flex gap-2';
+        handle.innerHTML = `<span>SECTION</span> <i class="fas fa-grip-lines"></i> <i class="fas fa-trash-alt cursor-pointer hover:text-red-200" onclick="State.delete('${node.id}')"></i>`;
+        el.appendChild(handle);
+
+        // Content Container
+        const container = document.createElement('div');
+        container.className = node.props.boxed ? 'container mx-auto px-4 flex flex-wrap' : 'w-full flex flex-wrap';
+        
+        // Render Columns
+        node.children.forEach(col => {
+            container.appendChild(this.renderColumn(col));
+        });
+
+        el.appendChild(container);
+        return el;
+    },
+
+    renderColumn(node) {
+        const el = document.createElement('div');
+        el.className = `builder-column relative p-2 border border-dashed border-transparent hover:border-gray-300 min-h-[50px] ${node.props.width} flex flex-col gap-2 transition-all`;
+        el.dataset.id = node.id;
+        
+        // Empty State Helper
+        if (node.children.length === 0) {
+            el.classList.add('bg-gray-50/50');
+            el.setAttribute('data-empty', 'Drop widgets here');
+        }
+
+        node.children.forEach(widget => {
+            el.appendChild(this.renderWidget(widget));
+        });
+
+        return el;
+    },
+
+    renderWidget(node) {
+        const el = document.createElement('div');
+        el.className = `relative group cursor-pointer`;
+        el.onclick = (e) => { e.stopPropagation(); this.select(node.id); };
+        
+        // Wrapper for hover effects / selection
+        const wrapper = document.createElement('div');
+        wrapper.className = `widget-wrapper transition-all duration-200 border border-transparent ${State.selectedId === node.id ? 'border-brand-500 ring-2 ring-brand-500/20' : 'hover:border-brand-400'}`;
+        
+        // Edit Controls
+        if (State.selectedId === node.id) {
+            const controls = document.createElement('div');
+            controls.className = 'absolute -top-3 right-0 bg-brand-500 text-white text-[9px] px-2 py-0.5 rounded flex gap-2 z-10';
+            controls.innerHTML = `<i class="fas fa-pen"></i> <i class="fas fa-trash-alt cursor-pointer" onclick="State.delete('${node.id}')"></i>`;
+            el.appendChild(controls);
+        }
+
+        // Generate HTML based on type
+        const p = node.props;
+        let html = '';
+
+        switch(node.type) {
+            case 'heading':
+                html = `<${p.tag} class="${p.align} ${p.color} ${p.size} ${p.weight} ${p.margin} leading-tight">${p.text}</${p.tag}>`;
+                break;
+            case 'text':
+                html = `<div class="${p.align} ${p.color} ${p.size} ${p.margin} prose max-w-none">${p.text}</div>`;
+                break;
+            case 'button':
+                html = `<div class="${p.align} ${p.margin}">
+                    <a href="${p.link}" class="inline-block ${p.variant} ${p.color} ${p.size} ${p.radius} font-semibold transition-transform hover:scale-105 shadow-md hover:shadow-lg">${p.text}</a>
+                </div>`;
+                break;
+            case 'image':
+                html = `<div class="${p.shadow} overflow-hidden ${p.radius}">
+                    <img src="${p.src}" alt="${p.alt}" class="${p.width} h-auto object-cover block">
+                </div>`;
+                break;
+            case 'video':
+                html = `<div class="${p.ratio} w-full overflow-hidden rounded-lg bg-black">
+                    <iframe class="w-full h-full" src="${p.src}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                </div>`;
+                break;
+            case 'spacer':
+                html = `<div class="${p.height}"></div>`;
+                break;
+            case 'divider':
+                html = `<div class="${p.margin} flex items-center justify-center"><div class="${p.width} border-t ${p.style}"></div></div>`;
+                break;
+        }
+
+        wrapper.innerHTML = html;
+        el.appendChild(wrapper);
+        return el;
+    },
+
+    select(id) {
+        State.selectedId = id;
+        this.render(); // Re-render to update active classes
+        this.openPropertyPanel(id);
+        
+        // Update Breadcrumbs
+        const node = State.get(id);
+        if (node) {
+            document.getElementById('breadcrumbs').innerText = `Document > ${node.type.toUpperCase()}`;
+        }
+    },
+
+    // --- Property Panel Logic ---
+
+    openPropertyPanel(id) {
+        const node = State.get(id);
+        if (!node) return;
+
+        const panel = document.getElementById('panel-editor');
+        const title = document.getElementById('editor-title');
+        const container = document.getElementById('property-controls');
+        
+        panel.classList.remove('translate-x-full', 'hidden');
+        title.innerText = `Edit ${WIDGETS[node.type]?.label || 'Element'}`;
+        
+        // Generate Controls
+        this.renderControls(node, container);
+    },
+
+    closePropertyPanel() {
+        document.getElementById('panel-editor').classList.add('translate-x-full');
+        State.selectedId = null;
+        this.render();
+    },
+
+    renderControls(node, container) {
+        container.innerHTML = '';
+        
+        // Helper for control generation
+        const addControl = (label, input) => {
+            const div = document.createElement('div');
+            div.className = 'space-y-1';
+            div.innerHTML = `<label class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">${label}</label>`;
+            div.appendChild(input);
+            container.appendChild(div);
+        };
+
+        const createInput = (key, type = 'text', options = []) => {
+            let el;
+            if (type === 'select') {
+                el = document.createElement('select');
+                el.className = 'w-full bg-gray-900 border border-gray-700 rounded text-xs text-gray-200 p-2 outline-none focus:border-brand-500';
+                options.forEach(opt => {
+                    const optEl = document.createElement('option');
+                    optEl.value = opt.value;
+                    optEl.text = opt.label;
+                    if (node.props[key] === opt.value) optEl.selected = true;
+                    el.appendChild(optEl);
                 });
+            } else if (type === 'textarea') {
+                el = document.createElement('textarea');
+                el.className = 'w-full bg-gray-900 border border-gray-700 rounded text-xs text-gray-200 p-2 outline-none focus:border-brand-500';
+                el.rows = 4;
+                el.value = node.props[key];
+            } else {
+                el = document.createElement('input');
+                el.type = type;
+                el.className = 'w-full bg-gray-900 border border-gray-700 rounded text-xs text-gray-200 p-2 outline-none focus:border-brand-500';
+                el.value = node.props[key];
             }
             
-            renderCanvas();
-            showToast('Success', 'AI layout generated successfully!');
-            document.getElementById('ai-prompt').value = '';
+            el.oninput = (e) => State.updateProp(node.id, key, e.target.value);
+            return el;
+        };
 
-        } catch (e) {
-            console.error(e);
-            showToast('Error', 'AI Generation failed. Try again.', 'error');
-        } finally {
-            loading.classList.add('hidden');
-            btn.classList.remove('opacity-50', 'pointer-events-none');
+        // --- SECTION PROPS ---
+        if (node.type === 'section') {
+            addControl('Background Color', createInput('bg', 'select', [
+                {label: 'Transparent', value: 'bg-transparent'},
+                {label: 'White', value: 'bg-white'},
+                {label: 'Gray', value: 'bg-gray-100'},
+                {label: 'Dark', value: 'bg-gray-900'},
+                {label: 'Brand', value: 'bg-brand-600'}
+            ]));
+            addControl('Height', createInput('height', 'select', [
+                {label: 'Fit Screen', value: 'min-h-screen'},
+                {label: 'Default', value: 'min-h-[200px]'},
+                {label: 'Small', value: 'min-h-[100px]'}
+            ]));
+            addControl('Content Width', createInput('boxed', 'select', [
+                {label: 'Boxed', value: true},
+                {label: 'Full Width', value: false}
+            ]));
         }
-    });
-}
 
-// --- Utilities & UI ---
-
-function switchTab(tabId) {
-    ['widgets', 'ai', 'style'].forEach(t => {
-        const btn = document.getElementById(`tab-${t}`);
-        const panel = document.getElementById(`panel-${t}`);
-        if (t === tabId) {
-            btn.classList.add('active');
-            panel.classList.remove('hidden');
-        } else {
-            btn.classList.remove('active');
-            panel.classList.add('hidden');
+        // --- TYPOGRAPHY ---
+        if (['heading', 'text', 'button'].includes(node.type)) {
+            addControl('Text Content', createInput('text', node.type === 'text' ? 'textarea' : 'text'));
+            addControl('Alignment', createInput('align', 'select', [
+                {label: 'Left', value: 'text-left'},
+                {label: 'Center', value: 'text-center'},
+                {label: 'Right', value: 'text-right'}
+            ]));
         }
-    });
-    
-    // Explicitly add click listeners to tabs if not already (logic below in init helps, but this fn is called directly)
-}
-// Exporting for onclick in HTML
-window.switchTab = switchTab;
 
-function setupTabs() {
-    ['widgets', 'ai', 'style'].forEach(t => {
-        const btn = document.getElementById(`tab-${t}`);
-        if(btn) {
-            btn.onclick = () => switchTab(t);
+        if (node.type === 'heading') {
+            addControl('HTML Tag', createInput('tag', 'select', [
+                {label: 'H1', value: 'h1'}, {label: 'H2', value: 'h2'}, {label: 'H3', value: 'h3'}
+            ]));
+            addControl('Size', createInput('size', 'select', [
+                {label: 'Small', value: 'text-2xl'}, {label: 'Medium', value: 'text-4xl'}, {label: 'Large', value: 'text-6xl'}, {label: 'Huge', value: 'text-8xl'}
+            ]));
         }
-    });
-}
 
+        // --- IMAGE ---
+        if (node.type === 'image') {
+            addControl('Image URL', createInput('src'));
+            addControl('Border Radius', createInput('radius', 'select', [
+                {label: 'None', value: 'rounded-none'}, {label: 'Small', value: 'rounded'}, {label: 'Medium', value: 'rounded-lg'}, {label: 'Full', value: 'rounded-full'}
+            ]));
+            addControl('Shadow', createInput('shadow', 'select', [
+                {label: 'None', value: 'shadow-none'}, {label: 'Soft', value: 'shadow-lg'}, {label: 'Hard', value: 'shadow-2xl'}
+            ]));
+        }
 
-function setDevice(mode) {
-    const wrapper = document.getElementById('viewport-wrapper');
-    wrapper.className = mode; // desktop, tablet, mobile
+        // --- BUTTON ---
+        if (node.type === 'button') {
+            addControl('Link URL', createInput('link'));
+            addControl('Color', createInput('variant', 'select', [
+                {label: 'Brand', value: 'bg-brand-600 hover:bg-brand-500'}, 
+                {label: 'Dark', value: 'bg-gray-800 hover:bg-gray-700'},
+                {label: 'Outline', value: 'border-2 border-brand-600 text-brand-600 hover:bg-brand-50'}
+            ]));
+        }
+        
+        // --- COMMON MARGIN ---
+        if (node.type !== 'section' && node.type !== 'column') {
+             addControl('Bottom Spacing', createInput('margin', 'select', [
+                {label: 'None', value: 'mb-0'}, {label: 'Small', value: 'mb-4'}, {label: 'Medium', value: 'mb-8'}, {label: 'Large', value: 'mb-16'}
+            ]));
+        }
+    },
     
-    ['desktop', 'tablet', 'mobile'].forEach(m => {
-        document.getElementById(`dev-${m}`).classList.toggle('active', m === mode);
-        document.getElementById(`dev-${m}`).classList.toggle('text-white', m === mode);
-        document.getElementById(`dev-${m}`).classList.toggle('bg-gray-700', m === mode);
-    });
-}
-window.setDevice = setDevice;
+    // Actions
+    addNewSection() {
+        State.addSection();
+    },
 
-function togglePreview() {
-    isPreviewMode = !isPreviewMode;
-    document.body.classList.toggle('preview-mode', isPreviewMode);
+    switchPanel(panel) {
+        document.getElementById('panel-elements').style.display = panel === 'elements' ? 'block' : 'none';
+        document.querySelectorAll('.panel-tab').forEach(el => el.classList.remove('active', 'border-brand-500', 'text-white'));
+        event.currentTarget.classList.add('active', 'border-brand-500', 'text-white');
+    },
+
+    setDevice(device) {
+        State.device = device;
+        const wrapper = document.getElementById('viewport-wrapper');
+        wrapper.className = `bg-white shadow-2xl transition-all duration-300 relative flex flex-col min-h-[85vh] mx-auto ${device}`;
+        
+        // Update Icons
+        document.querySelectorAll('.device-btn').forEach(btn => {
+            if (btn.dataset.device === device) btn.classList.add('bg-gray-700', 'text-white');
+            else btn.classList.remove('bg-gray-700', 'text-white');
+        });
+    },
+
+    togglePreview() {
+        document.body.classList.toggle('preview-mode');
+        // Hide UI elements in CSS
+    },
     
-    const btn = document.getElementById('preview-btn');
+    publish() {
+        // Here we would export HTML
+        const html = document.getElementById('builder-canvas').innerHTML;
+        console.log('Export HTML:', html);
+        alert('Site Updated! (Check console for HTML output)');
+    },
     
-    if (isPreviewMode) {
-        btn.innerHTML = `<i class="fas fa-eye-slash"></i> <span>Edit</span>`;
-        btn.classList.add('text-brand-400');
-        // Hide selection
-        selectedElementId = null;
-        renderCanvas();
-        // In a real app we might collapse the sidebar, but here we just hide outlines
-        showToast('Preview Mode', 'Editing disabled. View as user.');
-    } else {
-        btn.innerHTML = `<i class="fas fa-eye"></i> <span>Preview</span>`;
-        btn.classList.remove('text-brand-400');
-        renderCanvas();
-    }
-}
-window.togglePreview = togglePreview;
-
-function clearCanvas() {
-    if(confirm('Are you sure you want to clear the entire page?')) {
-        pageElements = [];
-        selectedElementId = null;
-        renderCanvas();
-        renderEditorPanel();
-        showToast('Cleared', 'Canvas is now empty.');
-    }
-}
-window.clearCanvas = clearCanvas;
-
-function publishSite() {
-    // Basic publish simulation
-    showToast('Published', 'Your site is live! (Simulation)');
-}
-window.publishSite = publishSite;
-
-function showToast(title, message, type = 'success') {
-    const t = document.getElementById('toast');
-    document.getElementById('toast-title').innerText = title;
-    document.getElementById('toast-msg').innerText = message;
-    
-    const iconCont = document.getElementById('toast-icon-container');
-    const icon = document.getElementById('toast-icon');
-
-    if (type === 'error') {
-        iconCont.className = 'bg-red-500/20 text-red-400 w-8 h-8 rounded-full flex items-center justify-center';
-        icon.className = 'fas fa-times';
-    } else {
-        iconCont.className = 'bg-green-500/20 text-green-400 w-8 h-8 rounded-full flex items-center justify-center';
-        icon.className = 'fas fa-check';
-    }
-
-    t.classList.remove('translate-y-20', 'opacity-0');
-    setTimeout(() => t.classList.add('translate-y-20', 'opacity-0'), 3000);
-}
-
-// --- Persistence ---
-
-function saveToStorage() {
-    localStorage.setItem('flexiBuilder_data', JSON.stringify(pageElements));
-}
-
-function loadFromStorage() {
-    const data = localStorage.getItem('flexiBuilder_data');
-    if (data) {
-        try {
-            pageElements = JSON.parse(data);
-            renderCanvas();
-        } catch(e) { console.error('Failed to load save'); }
-    }
-}
+    undo() { State.undo(); },
+    redo() { State.redo(); }
+};
 
 // Start
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+    Editor.init();
+});
+
+// Expose to window for inline onclicks
+window.Editor = Editor;
+window.State = State;
